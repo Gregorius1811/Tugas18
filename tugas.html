@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Presensi Karyawan</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #e0e0e0;
+        }
+        .tab-button.active {
+            background-color: #2196F3;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="time"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #2196F3;
+            color: white;
+        }
+        .qr-scanner-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        #qr-reader {
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .location-info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .attendance-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .summary-card h3 {
+            margin: 0;
+            color: #666;
+        }
+        .summary-card .number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sistem Presensi Karyawan</h1>
+            <p>Silakan pilih metode presensi</p>
+        </div>
+
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('manual')">Manual Input</button>
+                <button class="tab-button" onclick="switchTab('qr')">Scan QR Code</button>
+                <button class="tab-button" onclick="switchTab('location')">Presensi Lokasi</button>
+            </div>
+
+            <!-- Tab Manual Input -->
+            <div id="manual" class="tab-content active">
+                <form onsubmit="submitPresensi(event)">
+                    <div class="form-group">
+                        <label for="nip">NIP:</label>
+                        <input type="text" id="nip" name="nip" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nama">Nama Lengkap:</label>
+                        <input type="text" id="nama" name="nama" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jenis_presensi">Jenis Presensi:</label>
+                        <select id="jenis_presensi" name="jenis_presensi" required>
+                            <option value="">Pilih Jenis Presensi</option>
+                            <option value="masuk">Masuk</option>
+                            <option value="pulang">Pulang</option>
+                            <option value="izin">Izin</option>
+                            <option value="sakit">Sakit</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="keterangan_div" style="display: none;">
+                        <label for="keterangan">Keterangan:</label>
+                        <textarea id="keterangan" name="keterangan" rows="4"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Submit Presensi</button>
+                </form>
+            </div>
+
+            <!-- Tab QR Code -->
+            <div id="qr" class="tab-content">
+                <div class="qr-scanner-container">
+                    <div id="qr-reader"></div>
+                    <div id="qr-reader-results"></div>
+                </div>
+            </div>
+
+            <!-- Tab Location -->
+            <div id="location" class="tab-content">
+                <div class="location-info">
+                    <h3>Informasi Lokasi</h3>
+                    <p id="location-status">Mendapatkan lokasi...</p>
+                    <p id="distance-info"></p>
+                </div>
+                <button class="btn btn-primary" onclick="checkLocation()">Cek Lokasi & Presensi</button>
+            </div>
+        </div>
+
+        <!-- Ringkasan Presensi Hari Ini -->
+        <div class="attendance-summary">
+            <div class="summary-card">
+                <h3>Masuk</h3>
+                <div class="number" id="masuk-count">0</div>
+                <p>Karyawan</p>
+            </div>
+            <div class="summary-card">
+                <h3>Terlambat</h3>
+                <div class="number" id="terlambat-count">0</div>
+                <p>Karyawan</p>
+            </div>
+            <div class="summary-card">
+                <h3>Izin/Sakit</h3>
+                <div class="number" id="izin-count">0</div>
+                <p>Karyawan</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Switch Tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+            if (tabId === 'qr') {
+                initQRScanner();
+            }
+        }
+
+        // Initialize QR Scanner
+        function initQRScanner() {
+            const html5QrcodeScanner = new Html5QrcodeScanner(
+                "qr-reader", { fps: 10, qrbox: 250 });
+
+            function onScanSuccess(decodedText, decodedResult) {
+                console.log(`Code scanned = ${decodedText}`, decodedResult);
+                document.getElementById('qr-reader-results').innerHTML = 
+                    `<p>QR Code terdeteksi: ${decodedText}</p>`;
+                // Process the QR code data
+                processQRCode(decodedText);
+            }
+
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        // Process QR Code
+        function processQRCode(qrData) {
+            try {
+                const data = JSON.parse(qrData);
+                // Handle the QR code data
+                alert(`Presensi berhasil untuk: ${data.nama}`);
+                updateAttendanceSummary();
+            } catch (e) {
+                alert('QR Code tidak valid!');
+            }
+        }
+
+        // Location Check
+        function checkLocation() {
+            if (!navigator.geolocation) {
+                alert('Geolocation tidak didukung di browser Anda');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    const officeLocation = {
+                        lat: -6.2088, // Contoh koordinat kantor
+                        lng: 106.8456
+                    };
+
+                    const distance = calculateDistance(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        officeLocation.lat,
+                        officeLocation.lng
+                    );
+
+                    const locationStatus = document.getElementById('location-status');
+                    const distanceInfo = document.getElementById('distance-info');
+
+                    locationStatus.textContent = `Lokasi Anda: ${position.coords.latitude}, ${position.coords.longitude}`;
+                    distanceInfo.textContent = `Jarak dari kantor: ${distance.toFixed(2)} km`;
+
+                    if (distance <= 0.1) { // 100 meter radius
+                        alert('Presensi berhasil! Anda berada dalam radius kantor.');
+                        updateAttendanceSummary();
+                    } else {
+                        alert('Anda berada di luar radius kantor!');
+                    }
+                },
+                error => {
+                    alert('Error mendapatkan lokasi: ' + error.message);
+                }
+            );
+        }
+
+        // Calculate distance between two points
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius bumi dalam km
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI/180);
+        }
+
+        // Submit Manual Presence
+        function submitPresensi(event) {
+            event.preventDefault();
+            
+            // Validate form
+            const nip = document.getElementById('nip').value;
+            const nama = document.getElementById('nama').value;
+            
+            if (!/^\d{6}$/.test(nip)) {
+                alert('NIP harus terdiri dari 6 digit angka!');
+                return;
+            }
+
+            if (/\d/.test(nama)) {
+                alert('Nama tidak boleh mengandung angka!');
+                return;
+            }
+
+            // Process the form submission
+            alert('Presensi berhasil disimpan!');
+            updateAttendanceSummary();
+            event.target.reset();
+        }
+
+        // Update Attendance Summary
+        function updateAttendanceSummary() {
+            // In a real application, this would fetch data from the server
+            const masukCount = document.getElementById('masuk-count');
+            const terlambatCount = document.getElementById('terlambat-count');
+            const izinCount = document.getElementById('izin-count');
+
+            // Increment counters (just for demo)
+            masukCount.textContent = parseInt(masukCount.textContent) + 1;
+        }
+
+        // Event listener for presensi type
+        document.getElementById('jenis_presensi').addEventListener('change', function() {
+            const keteranganDiv = document.getElementById('keterangan_div');
+            const selectedValue = this.value;
+            
+            if (selectedValue === 'izin' || selectedValue === 'sakit') {
+                keteranganDiv.style.display = 'block';
+                document.getElementById('keterangan').required = true;
+            } else {
+                keteranganDiv.style.display = 'none';
+                document.getElementById('keterangan').required = false;
+            }
+        });
+    </script>
+</body>
+</html>
